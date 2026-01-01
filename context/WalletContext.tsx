@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Alert } from 'react-native';
 import { UserProfile, Transaction, Category } from '../types';
 import { DEFAULT_CATEGORIES } from '../constants';
 import { supabase } from '../lib/supabaseClient';
@@ -65,7 +66,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .single();
 
       if (profileError && profileError.code === 'PGRST116') {
-        // Profile doesn't exist (trigger might have failed or not set up), create one
         const newProfile = {
           id: userId,
           email: email,
@@ -74,9 +74,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
         const { data: insertedProfile } = await supabase.from('profiles').insert(newProfile).select().single();
         profile = insertedProfile;
-      } else if (profile) {
-        // If using real auth, email might not be in profiles table depending on schema, sync it if needed
-        // For now, assume profile has what we need
       }
 
       if (profile) {
@@ -92,14 +89,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (txs) setTransactions(txs as Transaction[]);
 
-      // C. Fetch Categories (System + User Private)
+      // C. Fetch Categories
       const { data: cats } = await supabase
         .from('categories')
         .select('*')
         .or(`user_id.is.null,user_id.eq.${userId}`);
 
       if (cats) {
-        // Merge fetched categories. Note: The DB `icon` field should store the Lucide icon name string.
         setCategories(cats as Category[]);
       }
 
@@ -110,8 +106,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // --- Auth Actions ---
-
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
@@ -120,7 +114,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     if (error) {
-      alert(error.message);
+      Alert.alert('Error', error.message);
       setIsLoading(false);
     }
   };
@@ -136,13 +130,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     if (error) {
-      alert(error.message);
+      Alert.alert('Error', error.message);
       setIsLoading(false);
       return;
     }
 
     if (data.user) {
-      // Manually insert profile if you don't have a SQL Trigger set up
       const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
         email,
@@ -159,8 +152,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const signOut = async () => {
     await supabase.auth.signOut();
   };
-
-  // --- Data Actions ---
 
   const updateUser = async (data: Partial<UserProfile>) => {
     if (!user) return;

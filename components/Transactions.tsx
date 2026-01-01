@@ -1,303 +1,620 @@
 import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    StyleSheet,
+    ScrollView,
+    Modal,
+    TextInput,
+    Alert
+} from 'react-native';
 import { useWallet } from '../context/WalletContext';
 import { TransactionType, Category } from '../types';
 import { format } from 'date-fns';
-import { Trash2, Plus, X, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { Trash2, Plus, X, AlertCircle } from 'lucide-react-native';
 import { IconByName, IconPicker } from './IconUtils';
+import { Picker } from '@react-native-picker/picker';
 
 type Tab = 'history' | 'categories';
 
 export const Transactions: React.FC = () => {
-  const { transactions, categories, addTransaction, deleteTransaction, addCategory, deleteCategory } = useWallet();
-  const [activeTab, setActiveTab] = useState<Tab>('history');
-  
-  // Transaction Modal State
-  const [isTxModalOpen, setIsTxModalOpen] = useState(false);
-  const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
-  const [amount, setAmount] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [note, setNote] = useState('');
-  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const { transactions, categories, addTransaction, deleteTransaction, addCategory, deleteCategory } = useWallet();
+    const [activeTab, setActiveTab] = useState<Tab>('history');
 
-  // Category State
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatType, setNewCatType] = useState<TransactionType>(TransactionType.EXPENSE);
-  const [newCatIcon, setNewCatIcon] = useState('Tag');
+    // Transaction Modal State
+    const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+    const [txType, setTxType] = useState<TransactionType>(TransactionType.EXPENSE);
+    const [amount, setAmount] = useState('');
+    const [categoryId, setCategoryId] = useState('');
+    const [note, setNote] = useState('');
+    const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-  // --- Handlers ---
-  const handleTxSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!amount || !categoryId) return;
-    addTransaction({
-      category_id: categoryId,
-      amount: parseFloat(amount),
-      note,
-      date: new Date(date).toISOString(),
-    });
-    closeTxModal();
-  };
+    // Category State
+    const [newCatName, setNewCatName] = useState('');
+    const [newCatType, setNewCatType] = useState<TransactionType>(TransactionType.EXPENSE);
+    const [newCatIcon, setNewCatIcon] = useState('Tag');
 
-  const handleCatSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCatName.trim()) return;
-    addCategory({
-      name: newCatName,
-      type: newCatType,
-      icon: newCatIcon,
-      color: '#' + Math.floor(Math.random()*16777215).toString(16),
-    });
-    setNewCatName('');
-    setNewCatIcon('Tag');
-  };
+    const formatCurrency = (val: string) => {
+        // Remove everything except numbers
+        const clean = val.replace(/\D/g, '');
+        if (!clean) return '';
+        // Add dots every 3 digits
+        return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    };
 
-  const closeTxModal = () => {
-    setIsTxModalOpen(false);
-    setAmount('');
-    setNote('');
-    setCategoryId('');
-    setDate(format(new Date(), 'yyyy-MM-dd'));
-  };
+    const handleAmountChange = (val: string) => {
+        setAmount(formatCurrency(val));
+    };
 
-  const filteredCategories = categories.filter(c => c.type === txType);
+    const handleTxSubmit = () => {
+        if (!amount || !categoryId) {
+            Alert.alert('Error', 'Please fill in all required fields');
+            return;
+        }
+        addTransaction({
+            category_id: categoryId,
+            amount: parseFloat(amount.replace(/\./g, '')),
+            note,
+            date: new Date(date).toISOString(),
+        });
+        closeTxModal();
+    };
 
-  return (
-    <div className="h-full flex flex-col pb-20 md:pb-0">
-      
-      {/* Top Bar with Tabs */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">
-            {activeTab === 'history' ? 'Transactions' : 'Categories'}
-        </h2>
-        {activeTab === 'history' && (
-             <button 
-                onClick={() => setIsTxModalOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-full shadow-lg shadow-indigo-200"
-            >
-                <Plus className="w-6 h-6" />
-            </button>
-        )}
-      </div>
+    const handleCatSubmit = () => {
+        if (!newCatName.trim()) return;
+        addCategory({
+            name: newCatName,
+            type: newCatType,
+            icon: newCatIcon,
+            color: '#' + Math.floor(Math.random() * 16777215).toString(16),
+        });
+        setNewCatName('');
+        setNewCatIcon('Tag');
+    };
 
-      <div className="flex p-1 bg-slate-100 rounded-xl mb-6">
-        <button 
-            onClick={() => setActiveTab('history')}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${activeTab === 'history' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
-        >
-            History
-        </button>
-        <button 
-            onClick={() => setActiveTab('categories')}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg transition ${activeTab === 'categories' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}
-        >
-            Manage Categories
-        </button>
-      </div>
+    const closeTxModal = () => {
+        setIsTxModalOpen(false);
+        setAmount('');
+        setNote('');
+        setCategoryId('');
+        setDate(format(new Date(), 'yyyy-MM-dd'));
+    };
 
-      {/* --- HISTORY TAB --- */}
-      {activeTab === 'history' && (
-        <div className="flex-1 overflow-y-auto space-y-3">
-            {transactions.length === 0 && (
-                <div className="text-center text-slate-400 mt-10">No transactions found.</div>
-            )}
-            {[...transactions].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((t) => {
-            const cat = categories.find((c) => c.id === t.category_id);
-            return (
-                <div key={t.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex justify-between items-center group">
-                <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white`} style={{ backgroundColor: cat?.color || '#94a3b8' }}>
-                       <IconByName name={cat?.icon || 'Tag'} className="w-5 h-5" />
-                    </div>
-                    <div>
-                    <p className="font-medium text-slate-800">{cat?.name}</p>
-                    <p className="text-xs text-slate-500">{format(new Date(t.date), 'MMM dd')} • {t.note || 'No note'}</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className={`font-bold ${cat?.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-slate-800'}`}>
-                        {cat?.type === TransactionType.INCOME ? '+' : '-'}${t.amount.toLocaleString()}
-                    </span>
-                    <button 
-                        onClick={() => deleteTransaction(t.id)}
-                        className="text-slate-300 hover:text-rose-500 transition"
+    const filteredCategories = categories.filter(c => c.type === txType);
+
+    return (
+        <View style={styles.container}>
+            {/* Top Bar */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>
+                    {activeTab === 'history' ? 'Transactions' : 'Categories'}
+                </Text>
+                {activeTab === 'history' && (
+                    <TouchableOpacity
+                        onPress={() => setIsTxModalOpen(true)}
+                        style={styles.fab}
                     >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                </div>
-                </div>
-            );
-            })}
-        </div>
-      )}
+                        <Plus size={24} color="#ffffff" />
+                    </TouchableOpacity>
+                )}
+            </View>
 
-      {/* --- CATEGORIES TAB --- */}
-      {activeTab === 'categories' && (
-          <div className="flex-1 overflow-y-auto">
-             {/* Add New Category Form */}
-             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
-                <h3 className="text-sm font-bold text-slate-700 mb-3">Add New Category</h3>
-                <form onSubmit={handleCatSubmit} className="space-y-3">
-                    <div className="flex gap-2">
-                        <select
-                            value={newCatType}
-                            onChange={(e) => setNewCatType(e.target.value as TransactionType)}
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                            <option value={TransactionType.EXPENSE}>Expense</option>
-                            <option value={TransactionType.INCOME}>Income</option>
-                        </select>
-                        <input
-                            type="text"
-                            value={newCatName}
-                            onChange={(e) => setNewCatName(e.target.value)}
-                            placeholder="Category Name"
-                            className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                    </div>
-                    
-                    <div>
-                        <p className="text-xs text-slate-500 mb-1">Select Icon:</p>
-                        <IconPicker selectedIcon={newCatIcon} onSelect={setNewCatIcon} />
-                    </div>
-
-                    <button
-                        type="submit"
-                        className="w-full bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2 mt-2"
-                    >
-                        <Plus className="w-4 h-4" /> Create Category
-                    </button>
-                </form>
-            </div>
-
-            {/* Categories List */}
-            <div className="space-y-2 pb-10">
-                {categories.map((c) => (
-                <div key={c.id} className="bg-white p-3 rounded-lg border border-slate-100 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                    <div 
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white"
-                        style={{ backgroundColor: c.color || '#94a3b8' }}
-                    >
-                         <IconByName name={c.icon} className="w-4 h-4" />
-                    </div>
-                    <div>
-                        <p className="font-medium text-slate-800 text-sm">{c.name}</p>
-                        <p className="text-xs text-slate-400 capitalize">{c.type.toLowerCase()}</p>
-                    </div>
-                    </div>
-                    
-                    {c.user_id ? (
-                    <button 
-                        onClick={() => deleteCategory(c.id)}
-                        className="text-slate-300 hover:text-rose-500 p-2"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                    ) : (
-                        <div title="System Default" className="p-2">
-                            <AlertCircle className="w-4 h-4 text-slate-200" />
-                        </div>
-                    )}
-                </div>
-                ))}
-            </div>
-          </div>
-      )}
-
-      {/* Add Transaction Modal */}
-      {isTxModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in slide-in-from-bottom-10 fade-in duration-300">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-800">New Transaction</h3>
-              <button onClick={closeTxModal}><X className="w-6 h-6 text-slate-400" /></button>
-            </div>
-
-            <form onSubmit={handleTxSubmit} className="space-y-4">
-                <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
-                    <button
-                        type="button"
-                        onClick={() => { setTxType(TransactionType.EXPENSE); setCategoryId(''); }}
-                        className={`flex-1 py-2 rounded-md text-sm font-medium transition ${txType === TransactionType.EXPENSE ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}
-                    >
-                        Expense
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { setTxType(TransactionType.INCOME); setCategoryId(''); }}
-                        className={`flex-1 py-2 rounded-md text-sm font-medium transition ${txType === TransactionType.INCOME ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
-                    >
-                        Income
-                    </button>
-                </div>
-
-                <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Amount</label>
-                    <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-slate-400">$</span>
-                        <input 
-                            type="number" 
-                            step="0.01"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            className="w-full pl-7 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-semibold"
-                            placeholder="0.00"
-                            required
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Category</label>
-                    <select
-                        value={categoryId}
-                        onChange={(e) => setCategoryId(e.target.value)}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-                        required
-                    >
-                        <option value="" disabled>Select Category</option>
-                        {filteredCategories.map(c => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Date</label>
-                        <div className="relative">
-                            <input 
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            />
-                             <div className="absolute right-3 top-2.5 pointer-events-none text-slate-400">
-                                <CalendarIcon className="w-4 h-4" />
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Note (Optional)</label>
-                        <input 
-                            type="text"
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="Lunch..."
-                        />
-                    </div>
-                </div>
-
-                <button 
-                    type="submit" 
-                    className={`w-full py-3 rounded-lg text-white font-bold mt-4 shadow-lg transition transform active:scale-95 ${txType === TransactionType.EXPENSE ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'}`}
+            {/* Tabs */}
+            <View style={styles.tabs}>
+                <TouchableOpacity
+                    onPress={() => setActiveTab('history')}
+                    style={[styles.tab, activeTab === 'history' && styles.activeTab]}
                 >
-                    Save Transaction
-                </button>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+                    <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>History</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={() => setActiveTab('categories')}
+                    style={[styles.tab, activeTab === 'categories' && styles.activeTab]}
+                >
+                    <Text style={[styles.tabText, activeTab === 'categories' && styles.activeTabText]}>Categories</Text>
+                </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                {/* History Tab */}
+                {activeTab === 'history' && (
+                    <View style={styles.listContainer}>
+                        {transactions.length === 0 ? (
+                            <Text style={styles.emptyText}>No transactions found.</Text>
+                        ) : (
+                            transactions
+                                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                .map((t) => {
+                                    const cat = categories.find((c) => c.id === t.category_id);
+                                    return (
+                                        <View key={t.id} style={styles.card}>
+                                            <View style={styles.txLeft}>
+                                                <View style={[styles.iconBg, { backgroundColor: cat?.color || '#94a3b8' }]}>
+                                                    <IconByName name={cat?.icon || 'Tag'} size={20} color="#ffffff" />
+                                                </View>
+                                                <View>
+                                                    <Text style={styles.txName}>{cat?.name}</Text>
+                                                    <Text style={styles.txMeta}>{format(new Date(t.date), 'MMM dd')} • {t.note || 'No note'}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.txRight}>
+                                                <Text style={[
+                                                    styles.txAmount,
+                                                    { color: cat?.type === TransactionType.INCOME ? '#059669' : '#1e293b' }
+                                                ]}>
+                                                    {cat?.type === TransactionType.INCOME ? '+' : '-'}${t.amount.toLocaleString()}
+                                                </Text>
+                                                <TouchableOpacity onPress={() => deleteTransaction(t.id)}>
+                                                    <Trash2 size={16} color="#94a3b8" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    );
+                                })
+                        )}
+                    </View>
+                )}
+
+                {/* Categories Tab */}
+                {activeTab === 'categories' && (
+                    <View style={styles.listContainer}>
+                        {/* New Category Form */}
+                        <View style={styles.formCard}>
+                            <Text style={styles.formTitle}>Add New Category</Text>
+                            <View style={styles.formRow}>
+                                <View style={styles.pickerWrapper}>
+                                    <Picker
+                                        selectedValue={newCatType}
+                                        onValueChange={(val) => setNewCatType(val)}
+                                        style={styles.typePicker}
+                                    >
+                                        <Picker.Item label="Expense" value={TransactionType.EXPENSE} />
+                                        <Picker.Item label="Income" value={TransactionType.INCOME} />
+                                    </Picker>
+                                </View>
+                                <TextInput
+                                    style={styles.nameInput}
+                                    value={newCatName}
+                                    onChangeText={setNewCatName}
+                                    placeholder="Name"
+                                />
+                            </View>
+                            <Text style={styles.label}>Select Icon:</Text>
+                            <IconPicker selectedIcon={newCatIcon} onSelect={setNewCatIcon} />
+
+                            <TouchableOpacity onPress={handleCatSubmit} style={styles.addCatButton}>
+                                <Plus size={16} color="#ffffff" />
+                                <Text style={styles.addCatButtonText}>Create Category</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Categories List */}
+                        <View style={styles.catList}>
+                            {categories.map((c) => (
+                                <View key={c.id} style={styles.catItem}>
+                                    <View style={styles.catLeft}>
+                                        <View style={[styles.catIconBg, { backgroundColor: c.color || '#94a3b8' }]}>
+                                            <IconByName name={c.icon} size={16} color="#ffffff" />
+                                        </View>
+                                        <View>
+                                            <Text style={styles.catName}>{c.name}</Text>
+                                            <Text style={styles.catType}>{c.type.toLowerCase()}</Text>
+                                        </View>
+                                    </View>
+                                    {c.user_id ? (
+                                        <TouchableOpacity onPress={() => deleteCategory(c.id)}>
+                                            <Trash2 size={16} color="#cbd5e1" />
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <AlertCircle size={16} color="#f1f5f9" />
+                                    )}
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+            </ScrollView>
+
+            {/* Add Transaction Modal */}
+            <Modal
+                visible={isTxModalOpen}
+                animationType="slide"
+                transparent
+                onRequestClose={closeTxModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>New Transaction</Text>
+                            <TouchableOpacity onPress={closeTxModal}>
+                                <X size={24} color="#94a3b8" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.typeToggle}>
+                            <TouchableOpacity
+                                onPress={() => { setTxType(TransactionType.EXPENSE); setCategoryId(''); }}
+                                style={[styles.toggleBtn, txType === TransactionType.EXPENSE && styles.activeExpenseToggle]}
+                            >
+                                <Text style={[styles.toggleBtnText, txType === TransactionType.EXPENSE && styles.activeToggleText]}>Expense</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => { setTxType(TransactionType.INCOME); setCategoryId(''); }}
+                                style={[styles.toggleBtn, txType === TransactionType.INCOME && styles.activeIncomeToggle]}
+                            >
+                                <Text style={[styles.toggleBtnText, txType === TransactionType.INCOME && styles.activeToggleText]}>Income</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Amount</Text>
+                            <TextInput
+                                style={styles.amountInput}
+                                value={amount}
+                                onChangeText={handleAmountChange}
+                                keyboardType="numeric"
+                                placeholder="0"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Category</Text>
+                            <View style={styles.pickerBorder}>
+                                <Picker
+                                    selectedValue={categoryId}
+                                    onValueChange={(val) => setCategoryId(val)}
+                                >
+                                    <Picker.Item label="Select Category" value="" enabled={false} />
+                                    {filteredCategories.map(c => (
+                                        <Picker.Item key={c.id} label={c.name} value={c.id} />
+                                    ))}
+                                </Picker>
+                            </View>
+                        </View>
+
+                        <View style={styles.row}>
+                            <View style={[styles.inputGroup, { flex: 1 }]}>
+                                <Text style={styles.inputLabel}>Date (YYYY-MM-DD)</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={date}
+                                    onChangeText={setDate}
+                                    placeholder="2024-01-01"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.inputLabel}>Note (Optional)</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                value={note}
+                                onChangeText={setNote}
+                                placeholder="Lunch..."
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            onPress={handleTxSubmit}
+                            style={[
+                                styles.saveBtn,
+                                { backgroundColor: txType === TransactionType.EXPENSE ? '#ef4444' : '#10b981' }
+                            ]}
+                        >
+                            <Text style={styles.saveBtnText}>Save Transaction</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </View>
+    );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#f8fafc',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        paddingBottom: 10,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    fab: {
+        backgroundColor: '#4f46e5',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 4,
+        shadowColor: '#4f46e5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+    },
+    tabs: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        marginBottom: 10,
+        backgroundColor: '#f1f5f9',
+        marginHorizontal: 20,
+        borderRadius: 12,
+        padding: 4,
+    },
+    tab: {
+        flex: 1,
+        paddingVertical: 8,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    activeTab: {
+        backgroundColor: '#ffffff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    tabText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#64748b',
+    },
+    activeTabText: {
+        color: '#4f46e5',
+    },
+    scrollContent: {
+        padding: 20,
+        paddingTop: 10,
+    },
+    listContainer: {
+        gap: 12,
+    },
+    emptyText: {
+        textAlign: 'center',
+        color: '#94a3b8',
+        marginTop: 40,
+    },
+    card: {
+        backgroundColor: '#ffffff',
+        padding: 16,
+        borderRadius: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    txLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    iconBg: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    txName: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1e293b',
+    },
+    txMeta: {
+        fontSize: 12,
+        color: '#64748b',
+    },
+    txRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    txAmount: {
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    formCard: {
+        backgroundColor: '#ffffff',
+        padding: 20,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        gap: 12,
+    },
+    formTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#334155',
+    },
+    formRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    pickerWrapper: {
+        width: 120,
+        backgroundColor: '#f8fafc',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        justifyContent: 'center',
+    },
+    typePicker: {
+        height: 44,
+    },
+    nameInput: {
+        flex: 1,
+        backgroundColor: '#f8fafc',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 12,
+        fontSize: 14,
+    },
+    label: {
+        fontSize: 12,
+        color: '#64748b',
+        fontWeight: '600',
+    },
+    addCatButton: {
+        backgroundColor: '#4f46e5',
+        paddingVertical: 12,
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 4,
+    },
+    addCatButtonText: {
+        color: '#ffffff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    catList: {
+        gap: 8,
+        paddingBottom: 40,
+    },
+    catItem: {
+        backgroundColor: '#ffffff',
+        padding: 12,
+        borderRadius: 12,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    catLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    catIconBg: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    catName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1e293b',
+    },
+    catType: {
+        fontSize: 10,
+        color: '#94a3b8',
+        textTransform: 'capitalize',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#ffffff',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        paddingBottom: 40,
+        gap: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    typeToggle: {
+        flexDirection: 'row',
+        backgroundColor: '#f1f5f9',
+        padding: 4,
+        borderRadius: 12,
+    },
+    toggleBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    activeExpenseToggle: {
+        backgroundColor: '#ffffff',
+    },
+    activeIncomeToggle: {
+        backgroundColor: '#ffffff',
+    },
+    toggleBtnText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#64748b',
+    },
+    activeToggleText: {
+        color: '#1e293b',
+    },
+    inputGroup: {
+        gap: 6,
+    },
+    inputLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#94a3b8',
+        textTransform: 'uppercase',
+    },
+    amountInput: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1e293b',
+    },
+    pickerBorder: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        overflow: 'hidden',
+    },
+    row: {
+        flexDirection: 'row',
+        gap: 16,
+    },
+    textInput: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+    },
+    saveBtn: {
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    saveBtnText: {
+        color: '#ffffff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+});

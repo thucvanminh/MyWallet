@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "My Wallet",
+    "slug": "my-wallet",
+    "version": "1.0.0",
+    "primaryColor": "#4f46e5",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.thucs.mywallet"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ac798ed3-d2e9-4898-bfa3-3731bfeebda9"
+      }
+    }
+  }
+}
