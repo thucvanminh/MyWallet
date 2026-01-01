@@ -1,0 +1,5 @@
+{
+  "name": "My Wallet Web",
+  "description": "A comprehensive personal finance tracker featuring income/expense management, customizable categories, and AI-powered financial insights. Modeled after a mobile-first experience.",
+  "requestFramePermissions": []
+}
